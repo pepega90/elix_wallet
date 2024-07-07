@@ -2,7 +2,7 @@ is a microservices-based wallet application built using Elixir, Phoenix, and Bro
 
 ## Architecture Diagram
 
-![Microservices Architecture Diagram](./path/to/your/image.png)
+![Microservices Architecture Diagram](https://github.com/pepega90/wallet_microservices/blob/main/diag.png)
 
 ## Features
 
