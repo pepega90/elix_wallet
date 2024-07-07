@@ -9,15 +9,9 @@ defmodule UserServiceWeb.UserController do
 
   action_fallback(UserServiceWeb.FallbackController)
 
-  # def index(conn, _params) do
-  #   users = Users.list_users()
-  #   render(conn, :index, users: users)
-  # end
-
-  # TODO: transfer from_user to to_user
-
   def create(conn, body) do
     with {:ok, %User{} = user} <- Users.create_user(body) do
+      # when create user, it automatically create this wallet too
       Publisher.publish_message(
         Jason.encode!(%{user_id: user.id, name: user.name, event: "add wallet"})
       )
@@ -31,22 +25,39 @@ defmodule UserServiceWeb.UserController do
 
   def show(conn, %{"id" => id}) do
     user = Users.get_user!(id)
+
     Publisher.publish_message(Jason.encode!(%{user_id: user.id, event: "get wallet"}))
     Publisher.publish_message(Jason.encode!(%{user_id: user.id, event: "get transaction"}))
-    wallet = await_wallet_response(user.id)
-    transactions = await_transaction_response(user.id)
-    # render(conn, :show, user: user, wallet: wallet)
+
+    wallet_task = Task.async(fn -> await_wallet_response(user.id) end)
+    transactions_task = Task.async(fn -> await_transaction_response(user.id) end)
+
+    wallet = Task.await(wallet_task)
+    transactions = Task.await(transactions_task)
+
     json(conn, %{user: user, wallet_balance: wallet, list_transaction: transactions})
   end
 
-  defp await_wallet_response(message_id) do
-    :timer.sleep(500)
-    WalletHandler.get_wallet(message_id)
+  defp await_wallet_response(message_id, retries \\ 5) do
+    case WalletHandler.get_wallet(message_id) do
+      nil when retries > 0 ->
+        :timer.sleep(200)
+        await_wallet_response(message_id, retries - 1)
+
+      wallet ->
+        wallet
+    end
   end
 
-  defp await_transaction_response(user_id) do
-    :timer.sleep(500)
-    TransactionHandler.get_transaction(user_id)
+  defp await_transaction_response(user_id, retries \\ 5) do
+    case TransactionHandler.get_transaction(user_id) do
+      nil when retries > 0 ->
+        :timer.sleep(200)
+        await_transaction_response(user_id, retries - 1)
+
+      transactions ->
+        transactions
+    end
   end
 
   def topup(conn, %{"user_id" => user_id, "amount" => amount}) do
@@ -54,19 +65,22 @@ defmodule UserServiceWeb.UserController do
     json(conn, %{message: "successfully top up"})
   end
 
-  # def update(conn, %{"id" => id, "user" => user_params}) do
-  #   user = Users.get_user!(id)
+  def transfer(conn, %{"from_user_id" => from_id, "to_user_id" => to_id, "amount" => amount}) do
+    Publisher.publish_message(
+      Jason.encode!(%{
+        from_id: from_id,
+        to_id: to_id,
+        amount: amount,
+        event: "transfer"
+      })
+    )
 
-  #   with {:ok, %User{} = user} <- Users.update_user(user, user_params) do
-  #     render(conn, :show, user: user)
-  #   end
-  # end
+    from_user = Users.get_user!(from_id)
+    to_user = Users.get_user!(to_id)
 
-  # def delete(conn, %{"id" => id}) do
-  #   user = Users.get_user!(id)
-
-  #   with {:ok, %User{}} <- Users.delete_user(user) do
-  #     send_resp(conn, :no_content, "")
-  #   end
-  # end
+    json(conn, %{
+      message:
+        "successfully transfer money with amount #{amount} from #{from_user.name} to #{to_user.name} "
+    })
+  end
 end

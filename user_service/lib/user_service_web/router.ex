@@ -10,5 +10,6 @@ defmodule UserServiceWeb.Router do
 
     resources("/users", UserController, except: [:new, :edit])
     post("/topup", UserController, :topup)
+    post("/transfer", UserController, :transfer)
   end
 end
