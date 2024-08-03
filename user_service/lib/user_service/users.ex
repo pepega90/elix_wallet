@@ -8,6 +8,26 @@ defmodule UserService.Users do
 
   alias UserService.Users.User
 
+  def get_user_by_email(email) do
+    Repo.get_by(User, email: email)
+  end
+
+  # for authenticate user check
+  def authenticate_user(email, password) do
+    user = get_user_by_email(email)
+
+    if user && verify_password(password, user.password) do
+      {:ok, user}
+    else
+      {:error, :unauthorized}
+    end
+  end
+
+  defp verify_password(password, stored_hash) do
+    hashed_password = :crypto.hash(:sha256, password) |> Base.encode16()
+    hashed_password == stored_hash
+  end
+
   @doc """
   Returns the list of users.
 

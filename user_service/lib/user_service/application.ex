@@ -18,7 +18,8 @@ defmodule UserService.Application do
       UserServiceWeb.Endpoint,
       UserService.WalletHandler,
       UserService.TransactionHandler,
-      UserService.BroadwayPipeline
+      UserService.BroadwayPipeline,
+      UserService.Publisher
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

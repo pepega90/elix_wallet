@@ -6,14 +6,36 @@ defmodule UserServiceWeb.UserController do
   alias UserService.Publisher
   alias UserService.WalletHandler
   alias UserService.TransactionHandler
+  alias UserService.Guardian
 
   action_fallback(UserServiceWeb.FallbackController)
+
+  def login(conn, %{"email" => email, "password" => password}) do
+    case Users.authenticate_user(email, password) do
+      {:ok, user} ->
+        {:ok, token, _claims} = Guardian.encode_and_sign(user)
+
+        conn
+        |> json(%{token: token})
+
+      {:error, :unauthorized} ->
+        conn
+        |> put_status(:unauthorized)
+        |> json(%{message: :unauthorize})
+    end
+  end
+
+  defp get_current_user(conn) do
+    user = Guardian.Plug.current_resource(conn)
+    user
+  end
 
   def create(conn, body) do
     with {:ok, %User{} = user} <- Users.create_user(body) do
       # when create user, it automatically create this wallet too
       Publisher.publish_message(
-        Jason.encode!(%{user_id: user.id, name: user.name, event: "add wallet"})
+        Jason.encode!(%{user_id: user.id, name: user.name, event: "add wallet"}),
+        "wallet_queue"
       )
 
       conn
@@ -25,9 +47,17 @@ defmodule UserServiceWeb.UserController do
 
   def show(conn, %{"id" => id}) do
     user = Users.get_user!(id)
+    get_current_user(conn) |> IO.inspect()
 
-    Publisher.publish_message(Jason.encode!(%{user_id: user.id, event: "get wallet"}))
-    Publisher.publish_message(Jason.encode!(%{user_id: user.id, event: "get transaction"}))
+    Publisher.publish_message(
+      Jason.encode!(%{user_id: user.id, event: "get wallet"}),
+      "wallet_queue"
+    )
+
+    Publisher.publish_message(
+      Jason.encode!(%{user_id: user.id, event: "get transaction"}),
+      "wallet_queue"
+    )
 
     wallet_task = Task.async(fn -> await_wallet_response(user.id) end)
     transactions_task = Task.async(fn -> await_transaction_response(user.id) end)
@@ -60,27 +90,35 @@ defmodule UserServiceWeb.UserController do
     end
   end
 
-  def topup(conn, %{"user_id" => user_id, "amount" => amount}) do
-    Publisher.publish_message(Jason.encode!(%{user_id: user_id, amount: amount, event: "top up"}))
+  def topup(conn, %{"amount" => amount}) do
+    user = get_current_user(conn)
+
+    Publisher.publish_message(
+      Jason.encode!(%{user_id: user.id, amount: amount, event: "top up"}),
+      "wallet_queue"
+    )
+
     json(conn, %{message: "successfully top up"})
   end
 
-  def transfer(conn, %{"from_user_id" => from_id, "to_user_id" => to_id, "amount" => amount}) do
+  def transfer(conn, %{"to_user_id" => to_id, "amount" => amount}) do
+    user = get_current_user(conn)
+
     Publisher.publish_message(
       Jason.encode!(%{
-        from_id: from_id,
+        from_id: user.id,
         to_id: to_id,
         amount: amount,
         event: "transfer"
-      })
+      }),
+      "wallet_queue"
     )
 
-    from_user = Users.get_user!(from_id)
     to_user = Users.get_user!(to_id)
 
     json(conn, %{
       message:
-        "successfully transfer money with amount #{amount} from #{from_user.name} to #{to_user.name} "
+        "successfully transfer money with amount #{amount} from #{user.name} to #{to_user.name} "
     })
   end
 end

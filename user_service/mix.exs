@@ -43,7 +43,9 @@ defmodule UserService.MixProject do
       {:dns_cluster, "~> 0.1.1"},
       {:bandit, "~> 1.2"},
       {:broadway, "~> 1.0"},
-      {:broadway_rabbitmq, "~> 0.7"}
+      {:broadway_rabbitmq, "~> 0.7"},
+      {:guardian, "~> 2.0"},
+      {:comeonin, "~> 5.0"}
     ]
   end
 

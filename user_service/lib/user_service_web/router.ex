@@ -5,10 +5,25 @@ defmodule UserServiceWeb.Router do
     plug(:accepts, ["json"])
   end
 
-  scope "/api", UserServiceWeb do
-    pipe_through(:api)
+  pipeline :auth do
+    plug(Guardian.Plug.Pipeline,
+      module: UserService.Guardian,
+      error_handler: UserService.AuthErrorHandler
+    )
 
-    resources("/users", UserController, except: [:new, :edit])
+    plug(Guardian.Plug.VerifyHeader)
+    plug(Guardian.Plug.LoadResource)
+  end
+
+  scope "/api", UserServiceWeb do
+    pipe_through([:api])
+    post("/users", UserController, :create)
+    post("/login", UserController, :login)
+  end
+
+  scope "/api", UserServiceWeb do
+    pipe_through([:api, :auth])
+    get("/users/:id", UserController, :show)
     post("/topup", UserController, :topup)
     post("/transfer", UserController, :transfer)
   end

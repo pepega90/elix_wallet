@@ -7,6 +7,10 @@
 # General application configuration
 import Config
 
+config :user_service, UserService.Guardian,
+  issuer: "user_service",
+  secret_key: "some_secret"
+
 config :user_service,
   ecto_repos: [UserService.Repo],
   generators: [timestamp_type: :utc_datetime]
@@ -26,6 +30,9 @@ config :user_service, UserServiceWeb.Endpoint,
 config :logger, :console,
   format: "$time $metadata[$level] $message\n",
   metadata: [:request_id]
+
+config :logger,
+  level: :info
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason

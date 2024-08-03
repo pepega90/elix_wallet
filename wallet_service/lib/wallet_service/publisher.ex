@@ -1,16 +1,30 @@
 defmodule WalletService.Publisher do
   use AMQP
+  use GenServer
+  require Logger
 
-  def publish_message(payload) do
+  def start_link(_) do
+    GenServer.start_link(__MODULE__, %{}, name: __MODULE__)
+  end
+
+  def publish_message(payload, queue_name) do
+    GenServer.cast(__MODULE__, {:publish, queue_name, payload})
+  end
+
+  # server callbacks
+  def init(_) do
     {:ok, connection} = Connection.open("amqp://guest:guest@localhost:5672")
     {:ok, channel} = Channel.open(connection)
-    queue = "user_queue"
+    {:ok, %{connection: connection, channel: channel}}
+  end
 
-    {:ok, _queue_info} = Queue.declare(channel, queue, durable: true)
-    :ok = Basic.publish(channel, "", queue, payload, persistent: true)
+  def handle_cast({:publish, queue_name, payload}, state) do
+    :ok = Basic.publish(state.channel, "", queue_name, payload, persistent: true)
+    Logger.info("Publish #{payload} to #{queue_name} queue")
+    {:noreply, state}
+  end
 
-    IO.puts(" [x] Sent #{payload}")
-
+  def terminate(_reason, %{connection: connection, channel: channel}) do
     :ok = Channel.close(channel)
     :ok = Connection.close(connection)
   end

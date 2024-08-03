@@ -1,5 +1,8 @@
 defmodule WalletService.BroadwayPipeline do
   use Broadway
+  use AMQP
+
+  require Logger
 
   alias Broadway.Message
   alias WalletService.Wallets
@@ -7,13 +10,17 @@ defmodule WalletService.BroadwayPipeline do
   alias WalletService.Repo
   alias WalletService.Publisher
 
+  @queue_name "wallet_queue"
+
   def start_link(_opts) do
+    create_queue()
+
     Broadway.start_link(__MODULE__,
       name: __MODULE__,
       producer: [
         module:
           {BroadwayRabbitMQ.Producer,
-           queue: "wallet_queue",
+           queue: @queue_name,
            connection: [
              host: "localhost",
              username: "guest",
@@ -26,15 +33,25 @@ defmodule WalletService.BroadwayPipeline do
     )
   end
 
+  defp create_queue do
+    {:ok, connection} = Connection.open("amqp://guest:guest@localhost:5672")
+    {:ok, channel} = Channel.open(connection)
+    {:ok, _queue_info} = Queue.declare(channel, @queue_name, durable: true)
+    :ok = Channel.close(channel)
+    :ok = Connection.close(connection)
+
+    Logger.info("Queue #{@queue_name} created")
+  end
+
   @impl true
   def handle_message(_, %Broadway.Message{data: data} = message, _) do
     case Jason.decode(data) do
       {:ok, %{"name" => name, "user_id" => user_id, "event" => "add wallet"}} ->
-        IO.puts("[x] Received messsage created user wallet")
+        Logger.info("Received messsage created user wallet")
         Wallets.create_wallet(%{user_id: user_id, balance: 0})
 
       {:ok, %{"user_id" => user_id, "event" => "get wallet"}} ->
-        IO.puts("[x] Received message get wallet")
+        Logger.info("Received message get wallet")
         find_wallet = WalletService.Wallets.get_wallet_by_user_id(user_id)
 
         if find_wallet do
@@ -45,10 +62,11 @@ defmodule WalletService.BroadwayPipeline do
               balance: wallet_data.balance,
               user_id: wallet_data.user_id,
               event: "get wallet"
-            })
+            }),
+            "user_queue"
           )
         else
-          IO.puts("[x] Wallet not found for user_id: #{user_id}")
+          Logger.info("Wallet not found for user_id: #{user_id}")
         end
 
       {:ok, %{"user_id" => user_id, "amount" => amount, "event" => "top up"}} ->
@@ -61,16 +79,16 @@ defmodule WalletService.BroadwayPipeline do
                      amount: amount
                    }) do
                 {:ok, _transaction} ->
-                  IO.puts("[x] Wallet topped up for user_id: #{user_id}")
+                  Logger.info("Wallet topped up for user_id: #{user_id}")
                   {:ok, wallet}
 
                 {:error, reason} ->
-                  IO.puts("[x] Failed to create transaction: #{reason}")
+                  Logger.info("Failed to create transaction: #{reason}")
                   Repo.rollback(reason)
               end
 
             {:error, reason} ->
-              IO.puts("[x] Failed to top up wallet: #{reason}")
+              Logger.info("Failed to top up wallet: #{reason}")
               Repo.rollback(reason)
           end
         end)
@@ -96,7 +114,7 @@ defmodule WalletService.BroadwayPipeline do
           with {:ok, _} <- Repo.update(from_changeset),
                {:ok, _} <- Repo.update(to_changeset) do
             Transactions.create_transaction(%{user_id: from_id, type: "Transfer", amount: amount})
-            IO.puts("[x] Transfer successful")
+            Logger.info("Transfer successful")
           else
             {:error, reason} -> Repo.rollback(reason)
           end
@@ -116,11 +134,12 @@ defmodule WalletService.BroadwayPipeline do
             user_id: user_id,
             data: Jason.encode!(updated_list_trans),
             event: "get transaction"
-          })
+          }),
+          "user_queue"
         )
 
       _ ->
-        IO.puts("Invalid message format")
+        Logger.error("Invalid message format")
     end
 
     message

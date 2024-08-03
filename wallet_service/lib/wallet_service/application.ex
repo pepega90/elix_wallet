@@ -14,7 +14,8 @@ defmodule WalletService.Application do
       # Start a worker by calling: WalletService.Worker.start_link(arg)
       # {WalletService.Worker, arg},
       # Start to serve requests, typically the last entry
-      WalletService.BroadwayPipeline
+      WalletService.BroadwayPipeline,
+      WalletService.Publisher
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
