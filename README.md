@@ -1,4 +1,4 @@
-is a microservices-based wallet application built using Elixir, Phoenix, and Broadway (RabbitMQ). This application allows users to manage their wallet balances, view transaction history, and transfer funds to other users. The architecture includes separate services for user management and wallet operations, each with its own database.
+is a microservices-based wallet application built using Elixir, Phoenix, and Broadway (RabbitMQ). This application allows users to manage their wallet balances, view transaction history, and transfer funds to other users. The architecture includes separate services for user management and wallet operations, each with its own database. For monitoring and observability, Prometheus is used for metrics collection, and Grafana for visualization.
 
 ## Architecture Diagram
 
@@ -11,6 +11,7 @@ is a microservices-based wallet application built using Elixir, Phoenix, and Bro
 - Top-Up Wallet
 - Transfer Balance to Other Users
 - Inter-service communication using RabbitMQ
+- Monitoring and Metrics: Metrics collection with Prometheus, visualization using Grafana
 
 ## Services
 
@@ -30,6 +31,12 @@ is a microservices-based wallet application built using Elixir, Phoenix, and Bro
 - **Message Broker**: RabbitMQ (using Broadway for message processing)
 - The gateway service sends messages to RabbitMQ, which routes them to the appropriate service (User Service or Wallet Service).
 
+## Monitoring and Metrics
+The application includes monitoring and observability tools to ensure reliable operation and performance tracking:
+
+- **Prometheus**: Collects real-time metrics from the services, such as request counts, response times, and error rates.
+- **Grafana**: Provides a dashboard to visualize the metrics collected by Prometheus.
+
 ## Getting Started
 
 ### Prerequisites
@@ -38,6 +45,8 @@ is a microservices-based wallet application built using Elixir, Phoenix, and Bro
 - Phoenix Framework
 - RabbitMQ
 - Broadway
+- Prometheus
+- Grafana
 - Docker (optional, for easier setup)
 
 ### Installation
