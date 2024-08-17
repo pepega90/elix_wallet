@@ -8,6 +8,7 @@ defmodule UserService.Application do
   @impl true
   def start(_type, _args) do
     children = [
+      UserService.PromEx,
       UserServiceWeb.Telemetry,
       UserService.Repo,
       {DNSCluster, query: Application.get_env(:user_service, :dns_cluster_query) || :ignore},

@@ -45,7 +45,8 @@ defmodule UserService.MixProject do
       {:broadway, "~> 1.0"},
       {:broadway_rabbitmq, "~> 0.7"},
       {:guardian, "~> 2.0"},
-      {:comeonin, "~> 5.0"}
+      {:comeonin, "~> 5.0"},
+      {:prom_ex, "~> 1.10"}
     ]
   end
 

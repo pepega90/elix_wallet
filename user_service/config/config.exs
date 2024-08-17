@@ -7,6 +7,17 @@
 # General application configuration
 import Config
 
+config :user_service, UserService.PromEx,
+  manual_metrics_start_delay: :no_delay,
+  drop_metrics_groups: [],
+  grafana: [
+    host: "http://localhost:3000",
+    auth_token: "glsa_N8v37UdHuFVrPaHRzqBuWlilO4es2FkB_dc0bfd93",
+    upload_dashboard_on_start: true,
+    folder_name: "user_service_dashboard",
+    annotate_app_lifecycle: true
+  ]
+
 config :user_service, UserService.Guardian,
   issuer: "user_service",
   secret_key: "some_secret"
